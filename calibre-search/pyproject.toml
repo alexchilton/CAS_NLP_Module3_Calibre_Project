@@ -1,0 +1,19 @@
+[project]
+name = "calibre-search"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ipykernel>=7.0.1",
+    "ipywidgets>=8.1.7",
+    "jupyterlab>=4.4.9",
+    "notebook>=7.4.7",
+    "numpy>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "sentence-transformers>=5.1.1",
+    "torch>=2.8.0",
+    "torchaudio>=2.8.0",
+    "torchvision>=0.23.0",
+    "tqdm>=4.67.1",
+]

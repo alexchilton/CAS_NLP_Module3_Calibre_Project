@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/ -v --tb=short --no-cov)",
+      "Bash(python -m pytest tests/calibre_tools/test_config.py -v --no-cov)",
+      "Bash(python -m pytest tests/ -v --no-cov)",
+      "Bash(python -m pytest tests/ -v --no-cov -x)",
+      "Bash(python -m pytest tests/ --cov=calibre_tools --cov-report=term-missing)",
+      "Bash(python test:*)",
+      "Bash(python test_mcp_client.py:*)",
+      "Read(//Users/alexchilton/Library/**)",
+      "Bash(pkill:*)",
+      "Bash(open:*)",
+      "Bash(python3:*)",
+      "Bash(curl -s http://127.0.0.1:8765/mcp)",
+      "Bash(osascript:*)",
+      "Bash(cat:*)",
+      "Bash(/Users/alexchilton/Downloads/Current_Learning/uni/BERN/CAS_NLP_M3-main/untitled/venv/bin/pip install fastmcp)",
+      "Bash(calibredb list:*)",
+      "Bash(calibredb show:*)",
+      "Bash(calibredb show_metadata:*)",
+      "Bash(python -m pytest tests/calibre_tools/test_cli_wrapper.py -v --no-cov -k \"test_list_books or test_get_book_metadata\")",
+      "Bash(python -m pytest tests/calibre_tools/test_cli_wrapper.py::TestCalibreCLI::test_get_book_metadata -v --no-cov)",
+      "Bash(python -m pytest tests/calibre_tools/test_cli_wrapper.py::TestCalibreCLI::test_get_book_metadata_as_opf -v --no-cov)",
+      "Bash(python -m pytest tests/calibre_tools/test_cli_wrapper.py::TestCalibreCLI::test_get_book_metadata_failure -v --no-cov)",
+      "Bash(git add:*)",
+      "Bash(git init:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
