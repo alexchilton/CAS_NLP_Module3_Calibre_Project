@@ -8,7 +8,8 @@ from calibre_mcp.tools import (
     duplicate_finder,
     isbn_tools,
     calibre_cli,
-    book_details
+    book_details,
+    metadata_enrichment
 )
 
 if __name__ == "__main__":

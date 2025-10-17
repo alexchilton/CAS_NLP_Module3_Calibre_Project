@@ -2,7 +2,7 @@
 
 A comprehensive set of tools for interacting with your Calibre library, including semantic search, duplicate detection, ISBN tools, and MCP integration for Claude.
 
-[![Tests](https://img.shields.io/badge/tests-79%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-86%20passed-brightgreen)]()
 [![Coverage](https://img.shields.io/badge/coverage-75%25-yellow)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 
@@ -10,6 +10,8 @@ A comprehensive set of tools for interacting with your Calibre library, includin
 
 - 🔍 **Semantic Search**: Find books using natural language queries powered by sentence transformers
 - 📖 **Complete Metadata**: Get full book details including descriptions, publisher, ISBN, formats
+- 🚀 **Batch Enrichment**: Automatically find and enrich books missing metadata from online sources
+- 🌐 **Online Metadata Fetching**: Query Amazon, Goodreads, Google Books for rich metadata
 - 🔄 **Duplicate Detection**: Find duplicate books by title, author, ISBN, or content similarity
 - 📚 **ISBN Tools**: Extract, validate, and search for ISBN-10 and ISBN-13
 - 🛠️ **Calibre CLI Integration**: Python wrappers for all common Calibre operations
@@ -101,7 +103,7 @@ open htmlcov/index.html
 ```
 
 **Test Results:**
-- ✅ **79 tests** - All passing
+- ✅ **86 tests** - All passing
 - ⚡ **~3 seconds** - Fast execution
 - 📊 **75% coverage** - High code coverage
 - 🎯 **100% calibre_tools** - Core modules fully tested
@@ -245,18 +247,80 @@ python -m calibre_mcp.app
 }
 ```
 
-### Available Tools
+### Available Tools (20 total)
 
+**Search & Discovery:**
 - `calibre_semantic_search` - Search using natural language
+- `calibre_list_books` - List books with filters
+- `calibre_search_library` - Search using Calibre syntax
 - `calibre_get_book_details` - Get complete metadata for a specific book
-- `calibre_find_duplicates` - Find duplicate books
+
+**Metadata Enrichment:**
+- `calibre_fetch_metadata_by_identifier` - Fetch metadata using ASIN, ISBN, or Goodreads ID
+- `calibre_fetch_metadata_by_title` - Fetch metadata by title/author
+- `calibre_enrich_book_metadata` - Auto-detect identifiers and enrich (with preview)
+- `calibre_apply_metadata_updates` - Apply suggested metadata updates
+- `calibre_find_books_needing_enrichment` - Find books with ISBNs missing metadata
+- `calibre_batch_enrich_books` - Batch process multiple books
+
+**Duplicate Detection:**
+- `calibre_find_duplicates` - Find duplicate books by title, author, ISBN
+
+**ISBN Tools:**
 - `calibre_isbn_extract_from_text` - Extract ISBNs from text
 - `calibre_isbn_validate` - Validate ISBN
 - `calibre_isbn_find_books` - Find books by ISBN
-- `calibre_list_books` - List books with filters
-- `calibre_search_library` - Search using Calibre syntax
+
+**Library Management:**
 - `calibre_add_book` - Add book to library
-- And more...
+- `calibre_remove_book` - Remove book from library
+- `calibre_update_metadata` - Update book metadata
+- `calibre_convert_format` - Convert book formats
+- `calibre_export_book` - Export book files
+
+### Example Workflow: Batch Enrichment in Claude Desktop
+
+Here's how to use the metadata enrichment tools to automatically enrich books missing metadata:
+
+**1. Find books needing enrichment:**
+```
+You: "Find 10 books with ISBNs that are missing descriptions"
+→ Uses calibre_find_books_needing_enrichment
+→ Returns list of books with IDs, titles, ISBNs
+```
+
+**2. Enrich a single book (automatic identifier detection):**
+```
+You: "Enrich book ID 1762"
+→ Uses calibre_enrich_book_metadata
+→ Auto-detects ISBN/ASIN from title or identifiers field
+→ Fetches metadata from Amazon/Goodreads/Google Books
+→ Shows existing metadata vs. suggested updates
+```
+
+**3. Apply updates selectively:**
+```
+You: "Update the publisher and series for book 1762"
+→ Uses calibre_apply_metadata_updates(1762, "Publisher,Series")
+→ Applies only the specified fields
+→ Returns confirmation of updates
+```
+
+**4. Batch process multiple books:**
+```
+You: "Batch enrich 20 books with ISBNs missing metadata"
+→ Uses calibre_batch_enrich_books(20)
+→ Processes up to 20 books automatically
+→ Returns summary: total processed, successful, failed
+→ Shows detailed results for each book
+```
+
+**Key Features:**
+- ✅ **Auto-detection** - Finds ASIN/ISBN in title or identifiers field
+- ✅ **Preview before applying** - See suggested changes before updating
+- ✅ **Selective updates** - Choose which fields to update
+- ✅ **Batch processing** - Enrich 10-50 books at once
+- ✅ **Focus on ISBNs** - More reliable than ASINs for metadata fetching
 
 ---
 
@@ -270,7 +334,8 @@ python -m calibre_mcp.app
 │   ├── semantic_search.py      # Semantic search with embeddings
 │   ├── duplicate_finder.py     # Duplicate detection algorithms
 │   ├── isbn_tools.py           # ISBN extraction & validation
-│   └── cli_wrapper.py          # Calibre CLI wrappers
+│   ├── cli_wrapper.py          # Calibre CLI wrappers (get_book_metadata, fetch_ebook_metadata)
+│   └── batch_enrichment.py     # Batch enrichment tools (NEW)
 │
 ├── calibre_mcp/                # MCP integration
 │   ├── __init__.py
@@ -279,7 +344,8 @@ python -m calibre_mcp.app
 │   └── tools/                  # MCP tool definitions
 │       ├── __init__.py
 │       ├── semantic_search.py
-│       ├── book_details.py
+│       ├── book_details.py     # calibre_get_book_details (NEW)
+│       ├── metadata_enrichment.py  # 6 enrichment tools (NEW)
 │       ├── duplicate_finder.py
 │       ├── isbn_tools.py
 │       └── calibre_cli.py
@@ -291,7 +357,7 @@ python -m calibre_mcp.app
 │       ├── test_semantic_search.py  # 14 tests
 │       ├── test_duplicate_finder.py # 13 tests
 │       ├── test_isbn_tools.py  # 19 tests
-│       └── test_cli_wrapper.py # 24 tests
+│       └── test_cli_wrapper.py # 31 tests (10 new tests)
 │
 ├── manual_test.py              # Interactive testing script
 ├── pytest.ini                  # Pytest configuration
@@ -373,7 +439,9 @@ from calibre_tools.cli_wrapper import (
     remove_book,
     set_metadata,
     convert_book,
-    search_library
+    search_library,
+    fetch_ebook_metadata,
+    get_book_metadata
 )
 
 # List with filters
@@ -394,6 +462,60 @@ book_id = add_book(
 
 # Search
 books = search_library("author:tolkien AND tags:fantasy")
+
+# Fetch metadata from online sources
+metadata = fetch_ebook_metadata(isbn="9780547928227", timeout=30)
+# Or by ASIN
+metadata = fetch_ebook_metadata(identifiers=["amazon:B004XFYWNY"])
+
+# Get full book details from Calibre
+details = get_book_metadata(book_id=1762)
+```
+
+### Batch Enrichment
+
+```python
+from calibre_tools.batch_enrichment import (
+    find_books_needing_enrichment,
+    enrich_single_book,
+    batch_enrich_books
+)
+
+# Find books with ISBNs that are missing descriptions
+candidates = find_books_needing_enrichment(
+    limit=10,
+    require_isbn=True,
+    missing_fields=['comments', 'publisher']
+)
+
+print(f"Found {len(candidates)} books needing enrichment")
+for book in candidates:
+    print(f"  {book['id']}: {book['title']} (ISBN: {book['isbn']})")
+
+# Enrich a single book
+result = enrich_single_book(book_id=1679)
+if result['success']:
+    print(f"Fetched metadata: {result['fetched_metadata']}")
+
+    # Apply updates
+    from calibre_tools.cli_wrapper import set_metadata
+    set_metadata(
+        book_id=1679,
+        publisher=result['fetched_metadata']['Publisher'],
+        comments=result['fetched_metadata']['Comments']
+    )
+
+# Batch process multiple books
+results = batch_enrich_books(limit=10, find_candidates=True)
+print(f"Processed: {results['total_processed']}")
+print(f"Successful: {results['successful']}")
+print(f"Failed: {results['failed']}")
+
+for r in results['results']:
+    if r['success']:
+        print(f"✓ Book {r['book_id']}: Enriched with {r['identifier_used']}")
+    else:
+        print(f"✗ Book {r['book_id']}: {r['error']}")
 ```
 
 ---

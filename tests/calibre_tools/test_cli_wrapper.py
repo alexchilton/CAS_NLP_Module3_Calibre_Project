@@ -426,3 +426,136 @@ Comments            : A great fantasy adventure book"""
 
         with pytest.raises(Exception, match='Failed to get book metadata'):
             get_book_metadata(999, '/fake/library')
+
+    @patch('subprocess.run')
+    def test_fetch_ebook_metadata_by_identifier(self, mock_subprocess):
+        """Test fetching ebook metadata using identifier"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        mock_output = """Title               : The Bride
+Author(s)           : Julie Garwood
+Publisher           : Berkley
+Tags                : Romance, Historical
+Series              : Lairds' Fiancées #1
+Languages           : eng
+Rating              : 4.2
+Published           : 1989-07-01T07:00:00+00:00
+Identifiers         : goodreads:39799149, amazon:B004XFYWNY"""
+
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout=mock_output
+        )
+
+        metadata = fetch_ebook_metadata(identifiers=["amazon:B004XFYWNY"])
+
+        assert metadata['Title'] == 'The Bride'
+        assert metadata['Author(s)'] == 'Julie Garwood'
+        assert metadata['Publisher'] == 'Berkley'
+
+        call_args = mock_subprocess.call_args[0][0]
+        assert 'fetch-ebook-metadata' in call_args
+        assert '--identifier' in call_args
+        assert 'amazon:B004XFYWNY' in call_args
+
+    @patch('subprocess.run')
+    def test_fetch_ebook_metadata_by_isbn(self, mock_subprocess):
+        """Test fetching ebook metadata using ISBN"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        mock_output = """Title               : The Hobbit
+Author(s)           : J.R.R. Tolkien"""
+
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout=mock_output
+        )
+
+        metadata = fetch_ebook_metadata(isbn="9780547928227")
+
+        assert metadata['Title'] == 'The Hobbit'
+        call_args = mock_subprocess.call_args[0][0]
+        assert '--isbn' in call_args
+        assert '9780547928227' in call_args
+
+    @patch('subprocess.run')
+    def test_fetch_ebook_metadata_by_title_author(self, mock_subprocess):
+        """Test fetching ebook metadata using title and author"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        mock_output = """Title               : Foundation
+Author(s)           : Isaac Asimov"""
+
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout=mock_output
+        )
+
+        metadata = fetch_ebook_metadata(title="Foundation", authors="Isaac Asimov")
+
+        assert metadata['Title'] == 'Foundation'
+        call_args = mock_subprocess.call_args[0][0]
+        assert '--title' in call_args
+        assert 'Foundation' in call_args
+        assert '--authors' in call_args
+        assert 'Isaac Asimov' in call_args
+
+    @patch('subprocess.run')
+    def test_fetch_ebook_metadata_as_opf(self, mock_subprocess):
+        """Test fetching ebook metadata as OPF XML"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        mock_xml = '<?xml version="1.0"?><package>...</package>'
+
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout=mock_xml
+        )
+
+        xml_output = fetch_ebook_metadata(isbn="9780547928227", as_opf=True)
+
+        assert xml_output == mock_xml
+        call_args = mock_subprocess.call_args[0][0]
+        assert '--opf' in call_args
+
+    @patch('subprocess.run')
+    def test_fetch_ebook_metadata_with_plugins(self, mock_subprocess):
+        """Test fetching ebook metadata with specific plugins"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        mock_output = """Title               : Test Book"""
+
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout=mock_output
+        )
+
+        fetch_ebook_metadata(
+            isbn="9780547928227",
+            allowed_plugins=["Amazon.com", "Goodreads"]
+        )
+
+        call_args = mock_subprocess.call_args[0][0]
+        assert '--allowed-plugin' in call_args
+        assert 'Amazon.com' in call_args
+        assert 'Goodreads' in call_args
+
+    def test_fetch_ebook_metadata_no_params(self):
+        """Test fetch_ebook_metadata raises error without parameters"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        with pytest.raises(ValueError, match='Must specify at least one'):
+            fetch_ebook_metadata()
+
+    @patch('subprocess.run')
+    def test_fetch_ebook_metadata_failure(self, mock_subprocess):
+        """Test handling fetch_ebook_metadata failure"""
+        from calibre_tools.cli_wrapper import fetch_ebook_metadata
+
+        mock_subprocess.return_value = MagicMock(
+            returncode=1,
+            stderr='Error: No metadata found'
+        )
+
+        with pytest.raises(Exception, match='Failed to fetch ebook metadata'):
+            fetch_ebook_metadata(isbn="invalid")

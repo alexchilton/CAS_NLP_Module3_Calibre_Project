@@ -185,3 +185,94 @@ def get_book_metadata(book_id, library_path=DEFAULT_CALIBRE_LIBRARY, as_opf=Fals
                 metadata[key] = value
 
     return metadata
+
+def fetch_ebook_metadata(title=None, authors=None, isbn=None, identifiers=None,
+                        as_opf=False, timeout=30, allowed_plugins=None):
+    """Fetch book metadata from online sources (Amazon, Goodreads, Google Books, etc.)
+
+    Args:
+        title: Book title
+        authors: Book author(s)
+        isbn: Book ISBN
+        identifiers: List of identifiers in format "source:value"
+                    (e.g., ["amazon:B004XFYWNY", "goodreads:39799149"])
+        as_opf: If True, return OPF XML format; if False, return parsed text
+        timeout: Timeout in seconds (default: 30)
+        allowed_plugins: List of plugin names to use (default: all)
+                        Options: Goodreads, Google, Google Images, Amazon.com,
+                        Edelweiss, Open Library, Big Book Search
+
+    Returns:
+        If as_opf=True: XML string
+        If as_opf=False: Dictionary with parsed metadata
+
+    Examples:
+        # Search by ASIN (Amazon ID)
+        metadata = fetch_ebook_metadata(identifiers=["amazon:B004XFYWNY"])
+
+        # Search by ISBN
+        metadata = fetch_ebook_metadata(isbn="9780547928227")
+
+        # Search by title and author
+        metadata = fetch_ebook_metadata(title="The Hobbit", authors="J.R.R. Tolkien")
+
+        # Use specific plugins only
+        metadata = fetch_ebook_metadata(
+            identifiers=["amazon:B004XFYWNY"],
+            allowed_plugins=["Amazon.com", "Goodreads"]
+        )
+    """
+    if not any([title, authors, isbn, identifiers]):
+        raise ValueError("Must specify at least one of: title, authors, isbn, or identifiers")
+
+    cmd = ['fetch-ebook-metadata']
+
+    # Add search criteria
+    if title:
+        cmd.extend(['--title', title])
+    if authors:
+        cmd.extend(['--authors', authors])
+    if isbn:
+        cmd.extend(['--isbn', isbn])
+    if identifiers:
+        for identifier in identifiers:
+            cmd.extend(['--identifier', identifier])
+
+    # Add options
+    if as_opf:
+        cmd.append('--opf')
+
+    cmd.extend(['--timeout', str(timeout)])
+
+    if allowed_plugins:
+        for plugin in allowed_plugins:
+            cmd.extend(['--allowed-plugin', plugin])
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        raise Exception(f"Failed to fetch ebook metadata: {result.stderr}")
+
+    if as_opf:
+        return result.stdout
+
+    # Parse the text output into a dictionary
+    metadata = {}
+    lines = result.stdout.strip().split('\n')
+
+    for line in lines:
+        if ':' in line:
+            key, value = line.split(':', 1)
+            key = key.strip()
+            value = value.strip()
+
+            # Handle multi-value fields
+            if key in metadata:
+                if isinstance(metadata[key], list):
+                    metadata[key].append(value)
+                else:
+                    metadata[key] = [metadata[key], value]
+            else:
+                metadata[key] = value
+
+    return metadata
