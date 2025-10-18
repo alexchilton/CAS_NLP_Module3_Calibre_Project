@@ -9,7 +9,8 @@ from calibre_mcp.tools import (
     isbn_tools,
     calibre_cli,
     book_details,
-    metadata_enrichment
+    metadata_enrichment,
+    sql_query
 )
 
 if __name__ == "__main__":

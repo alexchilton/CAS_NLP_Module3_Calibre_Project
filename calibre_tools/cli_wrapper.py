@@ -85,21 +85,74 @@ def set_metadata(book_id, library_path=DEFAULT_CALIBRE_LIBRARY, **metadata):
         'calibredb', 'set_metadata',
         '--library-path', library_path
     ]
-    
+
     # Add field metadata
     for key, value in metadata.items():
         if value is not None:
             cmd.extend([f'--field', f'{key}:{value}'])
-    
+
     # Add book ID
     cmd.append(str(book_id))
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True)
-    
+
     if result.returncode != 0:
         raise Exception(f"Failed to set metadata: {result.stderr}")
-    
+
     return True
+
+def bulk_update_comments(book_ids, comment_text, library_path=DEFAULT_CALIBRE_LIBRARY):
+    """
+    Update the comments/description field for multiple books at once.
+
+    Args:
+        book_ids: List of Calibre book IDs to update
+        comment_text: The description/comment text to set for all books
+        library_path: Path to Calibre library
+
+    Returns:
+        Dictionary with:
+        - success_count: Number of books successfully updated
+        - failure_count: Number of books that failed to update
+        - errors: List of error messages (book_id, error_message)
+        - updated_ids: List of successfully updated book IDs
+    """
+    results = {
+        'success_count': 0,
+        'failure_count': 0,
+        'errors': [],
+        'updated_ids': []
+    }
+
+    for book_id in book_ids:
+        try:
+            cmd = [
+                'calibredb', 'set_metadata',
+                '--library-path', library_path,
+                '--field', f'comments:{comment_text}',
+                str(book_id)
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True)
+
+            if result.returncode != 0:
+                results['failure_count'] += 1
+                results['errors'].append({
+                    'book_id': book_id,
+                    'error': result.stderr.strip()
+                })
+            else:
+                results['success_count'] += 1
+                results['updated_ids'].append(book_id)
+
+        except Exception as e:
+            results['failure_count'] += 1
+            results['errors'].append({
+                'book_id': book_id,
+                'error': str(e)
+            })
+
+    return results
 
 def convert_book(book_id, output_format, library_path=DEFAULT_CALIBRE_LIBRARY):
     """Convert a book to another format"""

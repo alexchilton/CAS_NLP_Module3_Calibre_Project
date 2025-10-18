@@ -247,13 +247,14 @@ python -m calibre_mcp.app
 }
 ```
 
-### Available Tools (20 total)
+### Available Tools (22 total)
 
 **Search & Discovery:**
 - `calibre_semantic_search` - Search using natural language
 - `calibre_list_books` - List books with filters
 - `calibre_search_library` - Search using Calibre syntax
 - `calibre_get_book_details` - Get complete metadata for a specific book
+- `calibre_sql` - Execute read-only SQL queries on Calibre's metadata.db
 
 **Metadata Enrichment:**
 - `calibre_fetch_metadata_by_identifier` - Fetch metadata using ASIN, ISBN, or Goodreads ID
@@ -262,6 +263,7 @@ python -m calibre_mcp.app
 - `calibre_apply_metadata_updates` - Apply suggested metadata updates
 - `calibre_find_books_needing_enrichment` - Find books with ISBNs missing metadata
 - `calibre_batch_enrich_books` - Batch process multiple books
+- `calibre_enrich_identifier_titles` - Find and enrich books where title is an ISBN/ASIN
 
 **Duplicate Detection:**
 - `calibre_find_duplicates` - Find duplicate books by title, author, ISBN
@@ -274,7 +276,8 @@ python -m calibre_mcp.app
 **Library Management:**
 - `calibre_add_book` - Add book to library
 - `calibre_remove_book` - Remove book from library
-- `calibre_update_metadata` - Update book metadata
+- `calibre_set_book_metadata` - Update book metadata (title, authors, isbn, tags, publisher, comments, pubdate, series, rating, language)
+- `calibre_bulk_update_comments` - Bulk update comments/description for multiple books
 - `calibre_convert_format` - Convert book formats
 - `calibre_export_book` - Export book files
 
@@ -321,6 +324,42 @@ You: "Batch enrich 20 books with ISBNs missing metadata"
 - ✅ **Selective updates** - Choose which fields to update
 - ✅ **Batch processing** - Enrich 10-50 books at once
 - ✅ **Focus on ISBNs** - More reliable than ASINs for metadata fetching
+
+### Example Workflow: Bulk Update Comments for Magazines
+
+The `calibre_bulk_update_comments` tool is perfect for adding generic descriptions to groups of books (e.g., magazines, periodicals) to prevent them from being picked up by metadata enrichment tools:
+
+**1. Find magazine/periodical IDs:**
+```
+You: "Find all books with 'The Economist' in the title"
+→ Uses calibre_search_library or calibre_list_books
+→ Returns list of book IDs
+```
+
+**2. Bulk update comments:**
+```
+You: "Update the comments for books [1234, 1235, 1236, ...] with the text 'This is a periodical/magazine issue and does not require metadata enrichment.'"
+→ Uses calibre_bulk_update_comments
+→ Updates all books at once
+→ Returns success/failure count and detailed results
+```
+
+**Example Response:**
+```json
+{
+  "success_count": 290,
+  "failure_count": 0,
+  "total": 290,
+  "updated_ids": [1234, 1235, 1236, ...],
+  "errors": null
+}
+```
+
+**Use Cases:**
+- 📰 **Magazines** - Mark periodicals to exclude from enrichment
+- 📚 **Series** - Add uniform descriptions to book series
+- 🏷️ **Categorization** - Bulk categorize books by type
+- 🚫 **Exclusion** - Mark books to skip in automated processing
 
 ---
 
@@ -438,6 +477,7 @@ from calibre_tools.cli_wrapper import (
     add_book,
     remove_book,
     set_metadata,
+    bulk_update_comments,
     convert_book,
     search_library,
     fetch_ebook_metadata,
@@ -459,6 +499,23 @@ book_id = add_book(
     authors="Author Name",
     isbn="9780547928227"
 )
+
+# Update single book metadata
+set_metadata(
+    book_id=1762,
+    library_path="~/Calibre Library",
+    publisher="Publisher Name",
+    comments="Book description",
+    tags="fiction,fantasy"
+)
+
+# Bulk update comments for multiple books
+results = bulk_update_comments(
+    book_ids=[1234, 1235, 1236],
+    comment_text="This is a periodical/magazine issue.",
+    library_path="~/Calibre Library"
+)
+print(f"Updated {results['success_count']} books")
 
 # Search
 books = search_library("author:tolkien AND tags:fantasy")

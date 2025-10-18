@@ -8,6 +8,7 @@ from . import isbn_tools
 from . import calibre_cli
 from . import book_details
 from . import metadata_enrichment
+from . import sql_query
 
 __all__ = [
     "semantic_search",
@@ -15,5 +16,6 @@ __all__ = [
     "isbn_tools",
     "calibre_cli",
     "book_details",
-    "metadata_enrichment"
+    "metadata_enrichment",
+    "sql_query"
 ]
