@@ -23,7 +23,7 @@ from calibre_tools.cli_wrapper import fetch_ebook_metadata, set_metadata
 
 # Bad author names to skip (only really problematic ones)
 BAD_AUTHORS = [
-    'welcome.html', 'libgen.li'
+    'welcome.html', 'libgen.li', 'unknown'
 ]
 
 # Title patterns to skip (non-book content)
@@ -313,14 +313,39 @@ def main():
         print("-" * 80)
 
         # Fetch metadata by title/author
-        print(f"Fetching metadata for '{title}' by '{author_normal}'...")
-        try:
-            metadata = fetch_ebook_metadata(
-                title=title,
-                authors=author_normal,
-                timeout=30
-            )
+        # Try with author first, then fall back to title-only if no results
+        metadata = None
 
+        # Check if author looks legitimate (not empty, not just garbage)
+        has_good_author = author_normal and len(author_normal.strip()) > 2
+
+        if has_good_author:
+            print(f"Fetching metadata for '{title}' by '{author_normal}'...")
+            try:
+                metadata = fetch_ebook_metadata(
+                    title=title,
+                    authors=author_normal,
+                    timeout=30
+                )
+            except Exception as e:
+                print(f"  ⚠ Title+author search failed: {e}")
+
+        # Fall back to title-only if author search failed or no author
+        if not metadata:
+            if has_good_author:
+                print(f"  → Retrying with title only...")
+            else:
+                print(f"Fetching metadata for '{title}' (title only, no author)...")
+
+            try:
+                metadata = fetch_ebook_metadata(
+                    title=title,
+                    timeout=30
+                )
+            except Exception as e:
+                print(f"✗ Title-only search also failed: {e}")
+
+        try:
             if not metadata:
                 print("✗ No metadata found")
                 no_metadata += 1
