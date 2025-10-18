@@ -69,14 +69,66 @@ duplicates = duplicate_finder.find_all_duplicates()
 print(f"Found {len(duplicates['exact_matches'])} exact duplicates")
 ```
 
-### Command Line
+### Command Line Scripts
 
+**Batch Enrichment (CLI-based):**
+```bash
+# Find and enrich 10 books missing descriptions
+python batch_enrich.py --limit 10 --missing comments
+
+# Enrich 20 books automatically without prompts
+python batch_enrich.py --limit 20 --auto-apply
+
+# Just find candidates, don't enrich
+python batch_enrich.py --find-only --limit 50
+
+# Refresh semantic search cache after enrichment
+python batch_enrich.py --limit 10 --refresh-search
+```
+
+**Batch Enrichment (SQL-based - 35% faster):**
+```bash
+# Same features as above, but uses direct SQL queries for faster candidate finding
+python batch_enrich_sql.py --limit 20 --missing comments --auto-apply
+
+# Find books missing publisher
+python batch_enrich_sql.py --find-only --missing publisher --limit 50
+
+# Find books missing ANY metadata field
+python batch_enrich_sql.py --find-only --missing all --limit 100
+```
+
+**Extract ISBNs from Files:**
+```bash
+# Extract ISBNs from EPUB files and enrich metadata
+python extract_and_enrich_isbns.py --limit 20 --formats EPUB --auto-apply
+
+# Extract from books missing descriptions (most likely to need enrichment)
+python extract_and_enrich_isbns.py --limit 50 --missing-description --auto-apply
+
+# Just extract ISBNs, don't enrich
+python extract_and_enrich_isbns.py --find-only --limit 100
+
+# Scan all formats
+python extract_and_enrich_isbns.py --formats EPUB,PDF,MOBI,AZW3 --limit 200
+```
+
+**Enrich Books with ISBN/ASIN as Title:**
+```bash
+# Find and enrich books where title is just an ISBN or ASIN
+python enrich_identifier_titles.py --limit 10 --auto-apply
+```
+
+**Manual Testing:**
+```bash
+# Interactive test menu
+python manual_test.py
+```
+
+**Python API:**
 ```python
 # Using Python directly
 python -c "from calibre_tools.semantic_search import search; print(search('sci-fi', 3))"
-
-# Or use the manual test script (see below)
-python manual_test.py
 ```
 
 ---
@@ -373,8 +425,8 @@ You: "Update the comments for books [1234, 1235, 1236, ...] with the text 'This 
 │   ├── semantic_search.py      # Semantic search with embeddings
 │   ├── duplicate_finder.py     # Duplicate detection algorithms
 │   ├── isbn_tools.py           # ISBN extraction & validation
-│   ├── cli_wrapper.py          # Calibre CLI wrappers (get_book_metadata, fetch_ebook_metadata)
-│   └── batch_enrichment.py     # Batch enrichment tools (NEW)
+│   ├── cli_wrapper.py          # Calibre CLI wrappers + bulk_update_comments
+│   └── batch_enrichment.py     # Batch enrichment tools
 │
 ├── calibre_mcp/                # MCP integration
 │   ├── __init__.py
@@ -383,11 +435,12 @@ You: "Update the comments for books [1234, 1235, 1236, ...] with the text 'This 
 │   └── tools/                  # MCP tool definitions
 │       ├── __init__.py
 │       ├── semantic_search.py
-│       ├── book_details.py     # calibre_get_book_details (NEW)
-│       ├── metadata_enrichment.py  # 6 enrichment tools (NEW)
+│       ├── book_details.py     # calibre_get_book_details
+│       ├── metadata_enrichment.py  # 7 enrichment tools
 │       ├── duplicate_finder.py
 │       ├── isbn_tools.py
-│       └── calibre_cli.py
+│       ├── calibre_cli.py      # Library management + bulk_update_comments
+│       └── sql_query.py        # Direct SQL query tool
 │
 ├── tests/                      # Comprehensive test suite
 │   ├── conftest.py             # Shared fixtures
@@ -396,9 +449,16 @@ You: "Update the comments for books [1234, 1235, 1236, ...] with the text 'This 
 │       ├── test_semantic_search.py  # 14 tests
 │       ├── test_duplicate_finder.py # 13 tests
 │       ├── test_isbn_tools.py  # 19 tests
-│       └── test_cli_wrapper.py # 31 tests (10 new tests)
+│       └── test_cli_wrapper.py # 31 tests
 │
+├── Command-Line Scripts:
+├── batch_enrich.py             # CLI-based batch enrichment
+├── batch_enrich_sql.py         # SQL-based batch enrichment (35% faster)
+├── extract_and_enrich_isbns.py # Extract ISBNs from files and enrich
+├── enrich_identifier_titles.py # Enrich books with ISBN/ASIN as title
+├── refresh_search_cache.py     # Refresh semantic search cache
 ├── manual_test.py              # Interactive testing script
+│
 ├── pytest.ini                  # Pytest configuration
 ├── .coveragerc                 # Coverage configuration
 ├── TEST_RESULTS.md             # Detailed test documentation
