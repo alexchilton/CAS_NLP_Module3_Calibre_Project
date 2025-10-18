@@ -2,7 +2,7 @@
 
 A comprehensive set of tools for interacting with your Calibre library, including semantic search, duplicate detection, ISBN tools, and MCP integration for Claude.
 
-[![Tests](https://img.shields.io/badge/tests-86%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-138%20passed-brightgreen)]()
 [![Coverage](https://img.shields.io/badge/coverage-75%25-yellow)]()
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)]()
 
@@ -119,6 +119,18 @@ python extract_and_enrich_isbns.py --formats EPUB,PDF,MOBI,AZW3 --limit 200
 python enrich_identifier_titles.py --limit 10 --auto-apply
 ```
 
+**Enrich by Identifier (ISBN/Amazon/ASIN):**
+```bash
+# Find and enrich books with identifiers but missing descriptions
+python enrich_by_identifier_sql.py --limit 20 --auto-apply
+
+# Just find candidates
+python enrich_by_identifier_sql.py --find-only --limit 50
+
+# Preview 10 books (interactive mode)
+python enrich_by_identifier_sql.py --limit 10
+```
+
 **Enrich by Title/Author (No ISBN):**
 ```bash
 # Find and enrich books without ISBNs but with good title/author info
@@ -129,6 +141,19 @@ python enrich_by_title_sql.py --find-only --limit 50
 
 # Adjust minimum title length filter
 python enrich_by_title_sql.py --min-title-length 15 --limit 30
+```
+
+**Course Metadata Scrapers:**
+```bash
+# Extract metadata for video courses (Udemy, Coursera, Pluralsight, LinkedIn Learning)
+python course_scraper_enhanced.py
+# Features: Full metadata, opening detection, file path tracking
+
+# Extract metadata for chess courses (Chessable, ChessBase, Modern Chess, TheChessWorld, Lichess)
+python chess_course_scraper.py
+# Features: Chess-specific metadata (opening, level), content type detection (video/pgn/study/database/ebook)
+
+# See COURSE_SCRAPER_README.md for detailed documentation
 ```
 
 **Find and Remove Duplicates:**
@@ -486,8 +511,11 @@ You: "Update the comments for books [1234, 1235, 1236, ...] with the text 'This 
 ├── batch_enrich_sql.py         # SQL-based batch enrichment (35% faster)
 ├── extract_and_enrich_isbns.py # Extract ISBNs from files and enrich
 ├── enrich_identifier_titles.py # Enrich books with ISBN/ASIN as title
+├── enrich_by_identifier_sql.py # Enrich books with identifiers but missing descriptions
 ├── enrich_by_title_sql.py      # Title/author-based enrichment (no ISBN)
 ├── find_duplicates_sql.py      # Find and remove duplicate books
+├── course_scraper_enhanced.py  # Scrape video course metadata (Udemy, Coursera, etc.)
+├── chess_course_scraper.py     # Scrape chess course metadata with content type detection
 ├── refresh_search_cache.py     # Refresh semantic search cache
 ├── manual_test.py              # Interactive testing script
 │
