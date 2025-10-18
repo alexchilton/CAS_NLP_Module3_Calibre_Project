@@ -119,6 +119,36 @@ python extract_and_enrich_isbns.py --formats EPUB,PDF,MOBI,AZW3 --limit 200
 python enrich_identifier_titles.py --limit 10 --auto-apply
 ```
 
+**Enrich by Title/Author (No ISBN):**
+```bash
+# Find and enrich books without ISBNs but with good title/author info
+python enrich_by_title_sql.py --limit 20 --auto-apply
+
+# Just find candidates
+python enrich_by_title_sql.py --find-only --limit 50
+
+# Adjust minimum title length filter
+python enrich_by_title_sql.py --min-title-length 15 --limit 30
+```
+
+**Find and Remove Duplicates:**
+```bash
+# Find duplicates (no deletion)
+python find_duplicates_sql.py --find-only
+
+# Interactive mode (ask for each duplicate)
+python find_duplicates_sql.py --interactive
+
+# Dry run (show what would be deleted)
+python find_duplicates_sql.py --auto-delete --dry-run
+
+# Auto-delete duplicates with smart scoring
+python find_duplicates_sql.py --auto-delete
+
+# Custom format priority (EPUB preferred over PDF)
+python find_duplicates_sql.py --auto-delete --format-priority "DJVU,AZW3,MOBI,PDF,EPUB"
+```
+
 **Manual Testing:**
 ```bash
 # Interactive test menu
@@ -456,6 +486,8 @@ You: "Update the comments for books [1234, 1235, 1236, ...] with the text 'This 
 ├── batch_enrich_sql.py         # SQL-based batch enrichment (35% faster)
 ├── extract_and_enrich_isbns.py # Extract ISBNs from files and enrich
 ├── enrich_identifier_titles.py # Enrich books with ISBN/ASIN as title
+├── enrich_by_title_sql.py      # Title/author-based enrichment (no ISBN)
+├── find_duplicates_sql.py      # Find and remove duplicate books
 ├── refresh_search_cache.py     # Refresh semantic search cache
 ├── manual_test.py              # Interactive testing script
 │
