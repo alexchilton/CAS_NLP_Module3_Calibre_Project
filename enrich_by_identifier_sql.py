@@ -5,11 +5,15 @@ Enrich books that have identifiers (ISBN, Amazon, ASIN) but missing descriptions
 This script finds books with identifiers but no descriptions and fetches
 proper metadata using those identifiers.
 
+Important: Books with no available metadata are tagged with 'metadata-unavailable'
+to prevent endless retries. Use --retry-failed to re-attempt these books.
+
 Usage:
     python enrich_by_identifier_sql.py                    # Preview 10 books
     python enrich_by_identifier_sql.py --limit 20         # Preview 20 books
     python enrich_by_identifier_sql.py --find-only        # Just find candidates
     python enrich_by_identifier_sql.py --auto-apply       # Auto-apply all updates
+    python enrich_by_identifier_sql.py --retry-failed     # Include previously failed books
 """
 
 import argparse
@@ -20,13 +24,14 @@ from calibre_tools.config import DEFAULT_CALIBRE_LIBRARY
 from calibre_tools.cli_wrapper import fetch_ebook_metadata, set_metadata
 
 
-def find_books_for_identifier_enrichment(limit=10, library_path=DEFAULT_CALIBRE_LIBRARY):
+def find_books_for_identifier_enrichment(limit=10, library_path=DEFAULT_CALIBRE_LIBRARY, retry_failed=False):
     """
     Find books with identifiers (ISBN, Amazon, ASIN) but no descriptions.
 
     Args:
         limit: Maximum number of books to return
         library_path: Path to Calibre library
+        retry_failed: If True, include books tagged as 'metadata-unavailable'
 
     Returns:
         List of book dicts with id, title, authors, identifier_type, identifier_value
@@ -36,24 +41,59 @@ def find_books_for_identifier_enrichment(limit=10, library_path=DEFAULT_CALIBRE_
     if not db_path.exists():
         raise Exception(f"Database not found at: {db_path}")
 
-    query = """
-        SELECT DISTINCT
-            b.id,
-            b.title,
-            b.author_sort as authors,
-            i.type as identifier_type,
-            i.val as identifier_value
-        FROM books b
-        LEFT JOIN comments c ON b.id = c.book
-        INNER JOIN identifiers i ON b.id = i.book
-        WHERE
-            -- No description or empty description
-            (c.text IS NULL OR c.text = '')
-            -- Has identifier (ISBN, Amazon, or ASIN)
-            AND i.type IN ('isbn', 'amazon', 'asin')
-            -- Not magazines
-            AND (c.text IS NULL OR c.text NOT LIKE '%periodical/magazine issue%')
-        ORDER BY b.last_modified DESC
+    # Build query with optional retry_failed clause
+    exclude_failed_clause = ""
+    if not retry_failed:
+        exclude_failed_clause = "AND (t.name IS NULL OR t.name != 'metadata-unavailable')"
+
+    # Use a subquery to get the best identifier per book
+    # Priority: ISBN > Amazon > ASIN (ISBN is most reliable)
+    query = f"""
+        WITH RankedIdentifiers AS (
+            SELECT
+                b.id,
+                b.title,
+                b.author_sort as authors,
+                i.type as identifier_type,
+                i.val as identifier_value,
+                CASE
+                    WHEN i.type = 'isbn' THEN 1
+                    WHEN i.type = 'amazon' THEN 2
+                    WHEN i.type = 'asin' THEN 3
+                    ELSE 4
+                END as priority,
+                ROW_NUMBER() OVER (PARTITION BY b.id ORDER BY
+                    CASE
+                        WHEN i.type = 'isbn' THEN 1
+                        WHEN i.type = 'amazon' THEN 2
+                        WHEN i.type = 'asin' THEN 3
+                        ELSE 4
+                    END
+                ) as rn
+            FROM books b
+            LEFT JOIN comments c ON b.id = c.book
+            INNER JOIN identifiers i ON b.id = i.book
+            LEFT JOIN books_tags_link btl ON b.id = btl.book
+            LEFT JOIN tags t ON btl.tag = t.id
+            WHERE
+                -- No description or empty description
+                (c.text IS NULL OR c.text = '')
+                -- Has identifier (ISBN, Amazon, or ASIN)
+                AND i.type IN ('isbn', 'amazon', 'asin')
+                -- Not magazines
+                AND (c.text IS NULL OR c.text NOT LIKE '%periodical/magazine issue%')
+                -- Optional: Not already marked as metadata-unavailable
+                {exclude_failed_clause}
+        )
+        SELECT
+            id,
+            title,
+            authors,
+            identifier_type,
+            identifier_value
+        FROM RankedIdentifiers
+        WHERE rn = 1
+        ORDER BY id DESC
         LIMIT ?
     """
 
@@ -109,6 +149,11 @@ def main():
         default=DEFAULT_CALIBRE_LIBRARY,
         help=f'Path to Calibre library (default: {DEFAULT_CALIBRE_LIBRARY})'
     )
+    parser.add_argument(
+        '--retry-failed',
+        action='store_true',
+        help='Include books previously tagged as metadata-unavailable'
+    )
 
     args = parser.parse_args()
 
@@ -125,7 +170,8 @@ def main():
     try:
         candidates = find_books_for_identifier_enrichment(
             limit=args.limit,
-            library_path=args.library_path
+            library_path=args.library_path,
+            retry_failed=args.retry_failed
         )
     except Exception as e:
         print(f"✗ Error querying database: {e}")
@@ -192,6 +238,16 @@ def main():
 
             print("✓ Fetched metadata:")
 
+            # DEBUG: Show all metadata fields returned
+            print("\n[DEBUG] All metadata fields returned:")
+            for key in metadata.keys():
+                value = metadata[key]
+                if key == 'Comments':
+                    preview = value[:100] + "..." if len(value) > 100 else value
+                    print(f"  - {key}: {preview}")
+                else:
+                    print(f"  - {key}: {value}")
+
             # Determine what to update
             updates = {}
             field_map = {
@@ -205,7 +261,7 @@ def main():
                 'Rating': 'rating'
             }
 
-            print("\nAvailable updates:")
+            print("\nFields we'll update:")
             for meta_key, db_field in field_map.items():
                 if meta_key in metadata and metadata[meta_key]:
                     value = metadata[meta_key]
@@ -224,6 +280,26 @@ def main():
             if not updates:
                 print("  (No new metadata available)")
                 no_metadata += 1
+
+                # Add a tag to prevent re-trying this book in the future
+                print("  → Marking book as 'metadata-unavailable' to skip in future runs...")
+                try:
+                    # Get existing tags
+                    from calibre_tools.cli_wrapper import get_book_metadata
+                    current_metadata = get_book_metadata(book_id, library_path=args.library_path)
+                    existing_tags = current_metadata.get('Tags', '')
+
+                    # Add the marker tag
+                    if existing_tags:
+                        new_tags = f"{existing_tags}, metadata-unavailable"
+                    else:
+                        new_tags = "metadata-unavailable"
+
+                    set_metadata(book_id, library_path=args.library_path, tags=new_tags)
+                    print("  ✓ Tagged as 'metadata-unavailable'")
+                except Exception as e:
+                    print(f"  ⚠ Could not tag book: {e}")
+
                 continue
 
             # Apply updates
