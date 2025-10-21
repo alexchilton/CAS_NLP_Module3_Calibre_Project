@@ -5,8 +5,10 @@ Enrich books that have identifiers (ISBN, Amazon, ASIN) but missing descriptions
 This script finds books with identifiers but no descriptions and fetches
 proper metadata using those identifiers.
 
-Important: Books with no available metadata are tagged with 'metadata-unavailable'
-to prevent endless retries. Use --retry-failed to re-attempt these books.
+Important:
+- Books with no available metadata are tagged with 'metadata-unavailable' to prevent endless retries
+- Use --retry-failed to re-attempt these books
+- CLOSE CALIBRE AND MCP SERVERS before running (database locking issue)
 
 Usage:
     python enrich_by_identifier_sql.py                    # Preview 10 books
@@ -324,6 +326,25 @@ def main():
         except Exception as e:
             print(f"✗ Error fetching metadata: {e}")
             failed += 1
+
+            # Tag the book as metadata-unavailable so we don't keep retrying
+            print("  → Marking book as 'metadata-unavailable' to skip in future runs...")
+            try:
+                from calibre_tools.cli_wrapper import get_book_metadata
+                current_metadata = get_book_metadata(book_id, library_path=args.library_path)
+                existing_tags = current_metadata.get('Tags', '')
+
+                # Add the marker tag
+                if existing_tags:
+                    new_tags = f"{existing_tags}, metadata-unavailable"
+                else:
+                    new_tags = "metadata-unavailable"
+
+                set_metadata(book_id, library_path=args.library_path, tags=new_tags)
+                print("  ✓ Tagged as 'metadata-unavailable'")
+            except Exception as tag_error:
+                print(f"  ⚠ Could not tag book: {tag_error}")
+
             continue
 
     # Summary
