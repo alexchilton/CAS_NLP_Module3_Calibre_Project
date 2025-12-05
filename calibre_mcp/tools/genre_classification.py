@@ -1,5 +1,6 @@
 # calibre_mcp/tools/genre_classification.py
 import json
+import os
 from typing import Optional
 from calibre_mcp.server import mcp
 from calibre_tools.cli_wrapper import get_book_metadata, list_books
@@ -14,7 +15,12 @@ def get_classifier():
     """Lazy-load the genre classifier singleton."""
     global _classifier
     if _classifier is None:
-        _classifier = GenreClassifier(model_dir="genre_model")
+        # Try environment variable first, then fall back to relative path
+        model_dir = os.environ.get(
+            "GENRE_MODEL_PATH",
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "genre_model")
+        )
+        _classifier = GenreClassifier(model_dir=model_dir)
     return _classifier
 
 

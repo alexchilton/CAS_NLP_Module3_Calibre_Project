@@ -126,12 +126,15 @@ All three genre classification tools are now registered and available in Claude 
       "command": "python",
       "args": ["-m", "calibre_mcp.app"],
       "env": {
-        "CALIBRE_LIBRARY_PATH": "/path/to/Calibre Library"
+        "CALIBRE_LIBRARY_PATH": "/path/to/Calibre Library",
+        "GENRE_MODEL_PATH": "/Users/alexchilton/Downloads/Current_Learning/uni/BERN/CAS_NLP_M3-main/untitled/genre_model"
       }
     }
   }
 }
 ```
+
+**Note:** The `GENRE_MODEL_PATH` environment variable is optional. If not set, the system will automatically look for the model in the project's `genre_model/` directory.
 
 2. Restart Claude Desktop to load the new tools.
 
@@ -247,6 +250,46 @@ python3 -m pytest tests/test_genre_classifier.py::TestGenreClassifier::test_genr
 - Suggest books based on genre preferences
 - Train on custom genres specific to your library
 
+## Troubleshooting
+
+### "genre_model is not a local folder" Error
+
+If you see this error in Claude Desktop:
+```
+genre_model is not a local folder and is not a valid model identifier
+```
+
+**Solution:**
+1. Add `GENRE_MODEL_PATH` to your Claude Desktop config:
+   ```json
+   {
+     "mcpServers": {
+       "calibre": {
+         "env": {
+           "GENRE_MODEL_PATH": "/full/path/to/untitled/genre_model"
+         }
+       }
+     }
+   }
+   ```
+
+2. Or ensure the MCP server runs from the correct directory (the `untitled` folder)
+
+3. Restart Claude Desktop after updating the config
+
+### Model Location
+The model should be at:
+```
+/Users/alexchilton/Downloads/Current_Learning/uni/BERN/CAS_NLP_M3-main/untitled/genre_model/
+```
+
+Verify it contains these files:
+- `model.safetensors` (267 MB)
+- `config.json`
+- `label_binarizer.pkl`
+- `tokenizer.json`
+- `vocab.txt`
+
 ## Support
 
 If you encounter issues:
@@ -254,6 +297,7 @@ If you encounter issues:
 2. Verify PyTorch and transformers are installed
 3. Ensure sklearn version compatibility (see test warnings)
 4. Test with a single book first before batch operations
+5. Check MCP server logs for path resolution issues
 
 ---
 
