@@ -69,3 +69,16 @@ res_prom_tool.py
 
 # Calibre Library (don't commit the actual library)
 Calibre Library/
+
+# ML Models (too large for git)
+genre_model/
+*.safetensors
+checkpoint-*/
+
+# Temporary scripts and testing
+ollama-mcp-bridge/
+ollama_tests
+ollama_mcp_setup.md
+test_tagging.py
+enrich_identifier_titles.py
+refresh_search_cache.py
