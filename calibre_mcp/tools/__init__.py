@@ -9,6 +9,7 @@ from . import calibre_cli
 from . import book_details
 from . import metadata_enrichment
 from . import sql_query
+from . import genre_classification
 
 __all__ = [
     "semantic_search",
@@ -17,5 +18,6 @@ __all__ = [
     "calibre_cli",
     "book_details",
     "metadata_enrichment",
-    "sql_query"
+    "sql_query",
+    "genre_classification"
 ]
