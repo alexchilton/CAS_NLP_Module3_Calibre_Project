@@ -6,14 +6,16 @@
 # and 07 were a one-off backlog, not the steady state.
 #
 # The ORDER matters and is not arbitrary:
-#   1. identifiers first  - a book with an ISBN can be looked up
-#   2. catalogues next    - a real publisher blurb beats a generated one
-#   3. the model last     - only for what no catalogue carries
-#   4. tags at the end    - they are classified from the description
+#   1. identifiers  - a book with an ISBN can be looked up
+#   2. catalogues   - a real publisher blurb beats a generated one
+#   3. the model    - only for what no catalogue carries
+#   4. tags         - classified from the description step 2 and 3 wrote
+#   5. search index - embeds the descriptions and tags the rest produced
 #
-# Writes go through calibredb, which cannot share the library with a running
-# calibre GUI. If calibre is open the read-only phases still run and the write
+# Writes need exclusive access to the library, which a running calibre GUI
+# holds. If calibre is open the read-only phases still run and the write
 # phases are skipped, so tomorrow picks them up from the same checkpoints.
+# The index rebuild is exempt: it only reads.
 
 set -uo pipefail
 
@@ -108,7 +110,19 @@ if [ "$OLLAMA" = 1 ]; then
     [ "$WRITES" = 1 ] && step "qwen tags (apply)" "$PY" -u "$REPO/tag_with_qwen.py" --apply
 fi
 
-# 5. Where the library stands --------------------------------------------
+# 5. Semantic search index ------------------------------------------------
+# Last, because it indexes the descriptions and tags the steps above write.
+# Rebuilt in full rather than incrementally: 29,230 books took 0.8 minutes on
+# MPS, which is cheaper than the bookkeeping to work out what changed.
+# Always: this reads the library with calibredb list, which works while
+# calibre is open, and embeds locally without ollama. Neither guard applies.
+step "semantic index rebuild" env FORCE_REFRESH=1 "$PY" -u -c "
+from calibre_tools.semantic_search import get_search_instance
+get_search_instance()
+print('index rebuilt')
+"
+
+# 6. Where the library stands --------------------------------------------
 # Yesterday's numbers, kept before this run overwrites them, so the summary
 # can say what MOVED rather than only where things stand. A standing total
 # tells you nothing about whether the run did anything.
@@ -132,7 +146,7 @@ ND="NOT EXISTS (SELECT 1 FROM comments c WHERE c.book=b.id AND TRIM(COALESCE(c.t
     " 2>&1 || echo "  (library locked - calibre is open)"
 } | tee "$SUMMARY"
 
-# 6. Say what moved -------------------------------------------------------
+# 7. Say what moved -------------------------------------------------------
 # The log is thousands of lines; nobody reads it. This is the part that gets
 # looked at, so it reports change, failures and skips - not a wall of totals.
 CHANGED=""
