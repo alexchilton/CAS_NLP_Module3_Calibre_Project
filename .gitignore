@@ -82,3 +82,10 @@ ollama_mcp_setup.md
 test_tagging.py
 enrich_identifier_titles.py
 refresh_search_cache.py
+
+# Run checkpoints and logs. These are per-machine state, not code: they record
+# which books a given run has already handled so --resume can skip them.
+*.jsonl
+*.log
+data/logs/
+*.bak-*

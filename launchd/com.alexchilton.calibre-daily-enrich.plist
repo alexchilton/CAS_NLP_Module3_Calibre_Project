@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.alexchilton.calibre-daily-enrich</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/alexchilton/CAS_NLP_Module3_Calibre_Project/daily_enrich.sh</string>
+    </array>
+
+    <!-- 09:15 local. Google Books' quota had reset by 09:32 on 2026-09-07 and
+         was exhausted by 10:45, so the catalogue step wants the early slot.
+         The exact reset time is not pinned; the log will show it. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key><integer>9</integer>
+        <key>Minute</key><integer>15</integer>
+    </dict>
+
+    <!-- If the Mac was asleep at 09:15, run once on wake rather than skip the
+         day. Without this a laptop that sleeps overnight never runs at all. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/alexchilton/CAS_NLP_Module3_Calibre_Project</string>
+
+    <!-- The script redirects its own output to a dated log. These catch
+         anything that dies before that redirect takes effect. -->
+    <key>StandardOutPath</key>
+    <string>/Users/alexchilton/CAS_NLP_Module3_Calibre_Project/data/logs/launchd.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/alexchilton/CAS_NLP_Module3_Calibre_Project/data/logs/launchd.err</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- Nice it down: the model phase will otherwise compete with whatever
+         you are actually doing. -->
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

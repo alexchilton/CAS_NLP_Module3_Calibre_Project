@@ -94,9 +94,16 @@ class CalibreSemanticSearch:
         """Extract metadata from Calibre using the CLI"""
         print(f"Extracting metadata from Calibre library: {self.library_path}")
         
+        # Without --fields, calibredb list returns id, title and authors ONLY.
+        # _create_searchable_text has branches for tags, series, publisher and
+        # comments; none of them had ever executed, so the index knew nothing
+        # but titles and author names. Measured 2026-09-07 against a library
+        # where 1,478 descriptions and 9,000+ tags had just been written and
+        # none of it was searchable.
         cmd = [
             'calibredb', 'list',
             '--library-path', self.library_path,
+            '--fields', 'title,authors,tags,comments,series,publisher',
             '--for-machine'
         ]
         

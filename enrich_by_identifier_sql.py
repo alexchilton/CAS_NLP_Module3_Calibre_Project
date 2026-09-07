@@ -19,11 +19,34 @@ Usage:
 """
 
 import argparse
+import re
 import sqlite3
 import subprocess
 from pathlib import Path
 from calibre_tools.config import DEFAULT_CALIBRE_LIBRARY
 from calibre_tools.cli_wrapper import fetch_ebook_metadata, set_metadata
+
+# Only the description is written back. A wrong identifier match would
+# otherwise rewrite title and authors: on 2026-09-06 an ISBN lookup renamed
+# "CUDA for LLMs" to "CUDA for Deep Learning" in the library.
+WRITABLE_FIELDS = {'comments'}
+
+# Publisher blurbs that carry no information about the book. Writing one
+# would leave the book looking described, so no later pass would revisit it.
+JUNK_DESCRIPTION_MARKERS = (
+    'register your print book',
+    'get the ebook free',
+)
+MIN_DESCRIPTION_CHARS = 150
+
+
+def is_junk_description(text):
+    """True if text is boilerplate rather than a description of the book."""
+    stripped = re.sub(r'<[^>]+>', '', text or '').strip()
+    if len(stripped) < MIN_DESCRIPTION_CHARS:
+        return True
+    lowered = stripped.lower()
+    return any(marker in lowered for marker in JUNK_DESCRIPTION_MARKERS)
 
 
 def find_books_for_identifier_enrichment(limit=10, library_path=DEFAULT_CALIBRE_LIBRARY, retry_failed=False):
@@ -263,10 +286,22 @@ def main():
                 'Rating': 'rating'
             }
 
+            # Keep the map above as the record of what the fetch returns, but
+            # only write the fields we trust an identifier match to get right.
+            field_map = {k: v for k, v in field_map.items() if v in WRITABLE_FIELDS}
+
             print("\nFields we'll update:")
+            rejected_junk = False
             for meta_key, db_field in field_map.items():
                 if meta_key in metadata and metadata[meta_key]:
                     value = metadata[meta_key]
+
+                    if db_field == 'comments' and is_junk_description(value):
+                        plain = re.sub(r'<[^>]+>', '', value).strip()
+                        print(f"  • {meta_key}: REJECTED, boilerplate or too "
+                              f"short ({len(plain)} chars)")
+                        rejected_junk = True
+                        continue
 
                     # Show preview for comments
                     if meta_key == 'Comments':
@@ -282,6 +317,12 @@ def main():
             if not updates:
                 print("  (No new metadata available)")
                 no_metadata += 1
+
+                if rejected_junk:
+                    # A source had the book but only offered boilerplate.
+                    # Leave it untagged so a better source can be tried later.
+                    print("  → Left untagged: only boilerplate was on offer")
+                    continue
 
                 # Add a tag to prevent re-trying this book in the future
                 print("  → Marking book as 'metadata-unavailable' to skip in future runs...")
