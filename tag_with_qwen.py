@@ -26,6 +26,7 @@ import json
 import os
 import re
 import sqlite3
+import tempfile
 import subprocess
 import sys
 import time
@@ -248,8 +249,8 @@ def do_apply(args):
             recs[r["id"]] = r["tags"]
 
     current = existing_tags(args.library_path)
-    print(f"{len(recs)} books with suggested tags to write")
-    written = failed = skipped = 0
+    payload = {}
+    skipped = 0
     for bid, tags in recs.items():
         # Keep everything the book already has. Removing a placeholder is a
         # deletion of your data, so this never does it.
@@ -258,20 +259,41 @@ def do_apply(args):
         if not added:
             skipped += 1
             continue
-        merged += added
+        payload[str(bid)] = merged + added
+
+    print(f"{len(payload)} books to write, {skipped} already had their tags")
+    if not payload:
+        return 0
+
+    # One calibre process for the whole map, not one per book. Measured
+    # 2026-09-07: calibredb set_metadata cost 3.1s a book, almost all of it
+    # process startup and opening a 29,230-book library -- 10.6 hours for
+    # 12,312 books. The same two books through here took 1.6s in total.
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                     encoding="utf-8") as fh:
+        json.dump({"library": args.library_path, "field": "tags",
+                   "values": payload}, fh)
+        payload_path = fh.name
+    try:
         r = subprocess.run(
-            ["calibredb", "set_metadata", "--library-path", args.library_path,
-             "--field", "tags:" + ",".join(merged), str(bid)],
+            ["calibre-debug", "-e", os.path.join(REPO, "calibre_bulk_set.py"),
+             payload_path],
             capture_output=True, text=True)
-        if r.returncode == 0:
-            written += 1
-        else:
-            failed += 1
-            print(f"  {bid}: FAILED {(r.stderr or r.stdout).strip()[-80:]}",
-                  file=sys.stderr)
-        if (written + failed) % 50 == 0:
-            print(f"  {written + failed}/{len(recs)}", flush=True)
-    print(f"\nwritten {written}, already had them {skipped}, failed {failed}")
+    finally:
+        os.unlink(payload_path)
+
+    if r.returncode != 0:
+        print((r.stderr or r.stdout).strip()[-500:], file=sys.stderr)
+        print("\nwritten 0 - bulk write failed", file=sys.stderr)
+        return 1
+
+    # The script prints one JSON line last; anything before it is calibre's
+    # own chatter on startup.
+    line = [ln for ln in r.stdout.strip().splitlines() if ln.startswith("{")]
+    result = json.loads(line[-1]) if line else {}
+    print(f"\nwritten {result.get('written', '?')}, "
+          f"already had them {skipped}, "
+          f"skipped as deleted {result.get('skipped_missing', 0)}")
     return 0
 
 
