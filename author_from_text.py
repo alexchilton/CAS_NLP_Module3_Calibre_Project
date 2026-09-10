@@ -103,6 +103,20 @@ def candidates(library_path):
     return [(bid, v[1], v[2], v[3]) for bid, v in best.items()]
 
 
+# Academic credentials only. A generational suffix is part of the name --
+# "Francis X. Govers III" is what the man is called, and stripping it would be
+# an error, not a tidy-up.
+CREDENTIAL_SUFFIX = re.compile(
+    r",?\s*\b(ph\.?\s?d|m\.?d|m\.?sc|m\.?a|b\.?sc|mba|msee|pmp|cissp|"
+    r"cpa|p\.?e)\b\.?\s*$", re.I)
+
+
+def tidy(name):
+    """Trim a title page's decoration off a name."""
+    n = re.sub(r"\s+", " ", (name or "")).strip(" ,.;")
+    return CREDENTIAL_SUFFIX.sub("", n).strip(" ,")
+
+
 def plausible(names, title):
     """Reject anything that is not a person's name.
 
@@ -149,7 +163,8 @@ def ask(client, model, text, title):
     reply = D.clean(r.json().get("message", {}).get("content", ""))
     if not reply or reply.upper().startswith("UNKNOWN") or "UNKNOWN" in reply.upper():
         return None
-    names = [n.strip(" .,") for n in re.split(r"\s*&\s*|\s*;\s*", reply) if n.strip()]
+    names = [tidy(n) for n in re.split(r"\s*&\s*|\s*;\s*", reply) if n.strip()]
+    names = [n for n in names if n]
     return names if plausible(names, title) else None
 
 
@@ -223,7 +238,11 @@ def do_apply(args):
         except Exception:
             continue
         if r.get("authors"):
-            recs[r["id"]] = r["authors"]
+            # Tidy at write time as well as at scan time: records written
+            # before tidy() existed still carry "Val Andrei Fajardo, PhD".
+            names = [n for n in (tidy(a) for a in r["authors"]) if n]
+            if names:
+                recs[r["id"]] = names
 
     # Only books still filed under Unknown. If you have since named an author
     # yourself, yours wins; this never overwrites a real one.

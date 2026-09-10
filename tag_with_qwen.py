@@ -95,7 +95,15 @@ def vocabulary(library_path):
 
 
 def candidates(library_path):
-    """Books with a description but no meaningful subject tag."""
+    """Books with no meaningful subject tag.
+
+    A description is preferred but not required. 214 books had neither a
+    description nor a tag and could never get one, because they are 200-byte
+    placeholder files for Udemy, Pluralsight and chess video courses whose
+    scrape returned nothing. Their titles are the course names -- "Golang for
+    the Absolute Beginners Hands on Go Programming" -- which is ample to
+    classify from. The model is told to answer NONE when it is not.
+    """
     marks = ",".join("?" * len(PLACEHOLDERS))
     sql = f"""
         SELECT b.id, b.title,
@@ -104,9 +112,7 @@ def candidates(library_path):
                  WHERE ba.book = b.id LIMIT 1),
                (SELECT c.text FROM comments c WHERE c.book = b.id)
         FROM books b
-        WHERE EXISTS (SELECT 1 FROM comments c
-                       WHERE c.book = b.id AND TRIM(COALESCE(c.text, '')) <> '')
-          AND NOT EXISTS (
+        WHERE NOT EXISTS (
               SELECT 1 FROM books_tags_link l JOIN tags t ON t.id = l.tag
                WHERE l.book = b.id AND t.name NOT IN ({marks}))
         ORDER BY b.id
@@ -125,8 +131,13 @@ def ask(client, model, vocab, batch):
     """Return {position: [tags]} for one batch of books."""
     lines = []
     for n, (_bid, title, author, desc) in enumerate(batch, 1):
+        # A stub course entry has no description. Say so rather than printing
+        # "Description: ", which reads like a truncation and invites the model
+        # to invent one.
+        body = plain(desc)
         lines.append(f"{n}. Title: {title}\n   Author: {author or 'unknown'}\n"
-                     f"   Description: {plain(desc)}")
+                     + (f"   Description: {body}" if body
+                        else "   Description: (none - classify from the title)"))
     prompt = PROMPT.format(vocab="\n".join(vocab), max_tags=MAX_TAGS,
                            books="\n\n".join(lines))
     r = client.post(f"{OLLAMA}/api/chat", json={
