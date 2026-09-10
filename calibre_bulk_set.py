@@ -46,7 +46,8 @@ def main():
     for bid in missing:
         del values[bid]
 
-    if field == "tags":
+    # calibre wants a tuple for the many-valued fields, not a JSON list.
+    if field in ("tags", "authors", "languages"):
         values = {bid: tuple(v) for bid, v in values.items()}
 
     changed = cache.set_field(field, values)

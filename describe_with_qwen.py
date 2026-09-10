@@ -159,7 +159,17 @@ def clean(reply):
     # that was nothing but the token becomes empty, which the caller treats
     # as a refusal. Measured 2026-09-06: 5 of 15 sampled "declines" were
     # full descriptions with this token stuck on the end.
-    return re.sub(r"\s*\bINSUFFICIENT\b[\s.]*$", "", reply).strip()
+    reply = re.sub(r"\s*\bINSUFFICIENT\b[\s.]*$", "", reply).strip()
+    # The model often writes a good description and then appends a remark
+    # about the source: "Note: The text provided appears to be a partial
+    # excerpt...". Measured 2026-09-10: 63 of 1,639 stored descriptions ended
+    # that way. It is always trailing and always after a marker, so cutting at
+    # the marker keeps the description and drops the commentary.
+    # The marker must START a sentence. Without that, "musical notation and
+    # the Note: symbol" would be cut in half.
+    reply = re.split(r"(?:(?<=[.!?])\s+|\A|\n|---+\s*)(?:Note:|NB:|\(Note:)",
+                     reply, maxsplit=1)[0]
+    return reply.strip().rstrip("-—–").strip()
 
 
 def describe(client, model, text, title, author):
