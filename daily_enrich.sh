@@ -9,6 +9,7 @@
 #   1. identifiers  - a book with an ISBN can be looked up
 #   2. catalogues   - a real publisher blurb beats a generated one
 #   3. the model    - only for what no catalogue carries
+#   3b. repair      - adverts and template text the catalogues handed us
 #   4. tags         - classified from the description step 2 and 3 wrote
 #   5. search index - embeds the descriptions and tags the rest produced
 #
@@ -102,6 +103,15 @@ fi
 if [ "$OLLAMA" = 1 ]; then
     step "qwen descriptions (generate)" "$PY" -u "$REPO/describe_with_qwen.py" --generate --resume
     [ "$WRITES" = 1 ] && step "qwen descriptions (apply)" "$PY" -u "$REPO/describe_with_qwen.py" --apply
+fi
+
+# 3b. Repair what the catalogues wrote ------------------------------------
+# Publisher adverts and template text arrive with new Manning and O'Reilly
+# titles, so this is not a one-off. It runs before tags, because a book whose
+# junk description is cleared here should not then be classified from it.
+if [ "$WRITES" = 1 ]; then
+    step "clean descriptions" "$PY" -u "$REPO/clean_descriptions.py" --apply
+    step "clean author fields" "$PY" -u "$REPO/clean_author_fields.py" --apply
 fi
 
 # 4. Tags -----------------------------------------------------------------
