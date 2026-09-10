@@ -251,7 +251,22 @@ def do_apply(args):
               f"ISBNs: {sorted(suspect)}")
         results = {b: i for b, i in results.items() if i not in suspect}
 
-    print(f"{len(results)} books have a recovered ISBN")
+    # The scan file only grows, so without this every run rewrites every ISBN
+    # it has ever recovered. Measured 2026-09-10: 925 books, ~15 minutes, on
+    # every daily run since 09-08, all of it writing values already present.
+    with sqlite3.connect(f"file:{args.library_path}/metadata.db?mode=ro",
+                         uri=True) as con:
+        have = {bid: val for bid, val in con.execute(
+            "SELECT book, val FROM identifiers WHERE type = 'isbn'")}
+        alive = {r[0] for r in con.execute("SELECT id FROM books")}
+
+    unchanged = sum(1 for b, i in results.items() if have.get(b) == i)
+    gone = sum(1 for b in results if b not in alive)
+    results = {b: i for b, i in results.items()
+               if b in alive and have.get(b) != i}
+
+    print(f"{len(results)} books need their recovered ISBN written "
+          f"({unchanged} already have it, {gone} no longer in the library)")
     written = failed = 0
     for book_id, isbn in results.items():
         r = subprocess.run(

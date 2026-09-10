@@ -164,7 +164,10 @@ if [ -f "$PREV" ]; then
 fi
 
 FAILS=$(grep -c "exit=[1-9]" "$LOG")
-WRITE_ERRORS=$(grep -ci "WRITE FAILED\|FAILED " "$LOG")
+# "failed 0" is a step reporting success. Count only a non-zero failure count
+# or an actual per-book failure line, or every clean run reports write errors
+# it did not have - which is what 2026-09-08 and 09-10 both did.
+WRITE_ERRORS=$(grep -cE "WRITE FAILED|^ *[0-9]+: FAILED " "$LOG")
 
 {
     echo

@@ -258,11 +258,16 @@ def do_apply(args):
     with sqlite3.connect(f"file:{args.library_path}/metadata.db?mode=ro", uri=True) as con:
         have = {r[0] for r in con.execute(
             "SELECT book FROM comments WHERE TRIM(COALESCE(text,'')) <> ''")}
+        alive = {r[0] for r in con.execute("SELECT id FROM books")}
     skipped = len(recs.keys() & have)
-    recs = {bid: d for bid, d in recs.items() if bid not in have}
+    # A book deleted since its description was generated stays in the
+    # checkpoint file forever, so without this it fails on every future run.
+    # Book 36402 did exactly that, once a day, from 2026-09-07.
+    gone = len(recs.keys() - have - alive)
+    recs = {bid: d for bid, d in recs.items() if bid not in have and bid in alive}
 
     print(f"{len(recs)} generated descriptions to write "
-          f"({skipped} already described, skipped)")
+          f"({skipped} already described, {gone} no longer in the library)")
     written = failed = 0
     for bid, desc in recs.items():
         html = f"<p>{desc}</p>\n{MARKER}"
