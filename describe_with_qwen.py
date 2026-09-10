@@ -27,6 +27,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -45,6 +46,14 @@ OLLAMA = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 # so only ~3B parameters activate per token.
 DEFAULT_MODEL = "qwen3-coder:30b-100k"
 PDFTOTEXT = "/opt/homebrew/bin/pdftotext"
+
+# Kindle and scanned formats that no python library here can open. calibre
+# converts all of them. Measured 2026-09-10: 58 books had a file and no
+# description solely because it was one of these -- 20% of everything still
+# undescribed. Conversion costs about 6 seconds a book against 0.1 for
+# pdftotext, so these rank last and are only reached when nothing else exists.
+EBOOK_CONVERT = "/Applications/calibre.app/Contents/MacOS/ebook-convert"
+CONVERTIBLE = ("MOBI", "AZW3", "AZW", "DJVU", "LRF", "ORIGINAL_MOBI")
 
 # Enough front matter to cover a title page, blurb, preface and contents,
 # without feeding a whole book to the model.
@@ -101,6 +110,25 @@ def txt_text(path):
         return fh.read(MAX_CHARS * 2)
 
 
+def converted_text(path):
+    """Let calibre open what we cannot, by converting to plain text.
+
+    The whole book is converted, not just the front matter, because
+    ebook-convert has no page range. Only the first slice is read back, which
+    is the same front matter the other readers extract.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "out.txt")
+        try:
+            r = subprocess.run([EBOOK_CONVERT, path, out],
+                               capture_output=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            return ""
+        if r.returncode != 0 or not os.path.isfile(out):
+            return ""
+        return txt_text(out)
+
+
 def book_text(fmt, path):
     if not os.path.isfile(path):
         return ""
@@ -110,6 +138,8 @@ def book_text(fmt, path):
         raw = epub_text(path)
     elif fmt == "TXT":
         raw = txt_text(path)
+    elif fmt in CONVERTIBLE:
+        raw = converted_text(path)
     else:
         return ""
     # Collapse the whitespace that PDF extraction leaves behind, so the
@@ -147,7 +177,11 @@ def describe(client, model, text, title, author):
 
 def candidates(library_path):
     """Books with no description, best readable format each."""
-    order = {"EPUB": 0, "PDF": 1, "TXT": 2, "ORIGINAL_EPUB": 3}
+    # Cheapest and cleanest reader first; the convertible formats cost about
+    # 6 seconds each, so they are only used when a book has nothing else.
+    order = {"EPUB": 0, "PDF": 1, "TXT": 2, "ORIGINAL_EPUB": 3,
+             "AZW3": 4, "MOBI": 5, "AZW": 6, "ORIGINAL_MOBI": 7, "LRF": 8,
+             "DJVU": 9}
     sql = """
         SELECT b.id, d.format, b.path, d.name, b.title,
                (SELECT a.name FROM authors a JOIN books_authors_link l
