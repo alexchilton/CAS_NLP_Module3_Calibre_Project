@@ -64,6 +64,7 @@ Apple DTS (forums thread 794920) separately advises against bypassing
 
 ## What is used instead
 
-A Shortcuts shortcut with "Pin in Menu Bar", which is hosted by Apple's own
-menu bar item and therefore renders. It runs `run_daily_interactive.command`,
-which is the part of this directory that is still live and still used.
+A Shortcuts shortcut pinned to the DOCK - see shortcut.md. Pinning it to the
+menu bar fails the same way this app does: the icon appears and then drops out,
+because the Shortcuts menu bar extra uses the same appStatusItems path. It runs
+`run_daily_interactive.command`, which is the live part of this directory.
