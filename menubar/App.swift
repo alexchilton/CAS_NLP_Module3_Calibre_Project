@@ -44,6 +44,24 @@ func runningPid() -> Int32? {
     return pid
 }
 
+/// A menu bar app has nowhere to print. Without this, "it is running but I
+/// cannot see it" has no evidence behind it either way.
+let noteFile = "/tmp/calibre-daily-menubar.log"
+func note(_ message: String) {
+    let f = DateFormatter()
+    f.dateFormat = "HH:mm:ss"
+    let line = "\(f.string(from: Date()))  \(message)\n"
+    if let data = line.data(using: .utf8) {
+        if let fh = FileHandle(forWritingAtPath: noteFile) {
+            fh.seekToEndOfFile()
+            fh.write(data)
+            try? fh.close()
+        } else {
+            try? data.write(to: URL(fileURLWithPath: noteFile))
+        }
+    }
+}
+
 func openInTerminal(_ path: String) {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
@@ -58,16 +76,38 @@ func mono(_ text: String, size: CGFloat = 12, dim: Bool = false) -> NSAttributed
     ])
 }
 
-final class Controller: NSObject, NSMenuDelegate {
-    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+@main
+final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    // Built in applicationDidFinishLaunching, NOT in init. A status item
+    // created before NSApplication finishes launching reports isVisible=true
+    // and never draws, which is exactly the symptom this app had: alive,
+    // sleeping, symbol resolved, nothing in the menu bar.
+    var item: NSStatusItem!
     var timer: Timer?
 
-    override init() {
-        super.init()
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // autosaveName only names the item; measured 2026-09-13, third-party
+        // status items get no entry in com.apple.controlcenter at all. The
+        // "NSStatusItem Visible Item-N" keys there belong to Apple's own
+        // Control Center modules, alongside AirDrop and Battery. An earlier
+        // comment here claimed those keys were hiding this item. That was wrong.
+item.autosaveName = "CalibreDailyEnrich"
+        item.isVisible = true
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
         refreshIcon()
+        note("launched | bundleID=\(Bundle.main.bundleIdentifier ?? "NIL")"
+             + " path=\(Bundle.main.bundlePath)"
+             + " policy=\(NSRunningApplication.current.activationPolicy.rawValue)"
+             + " infoKeys=\(Bundle.main.infoDictionary?.count ?? -1)")
+        if let s = NSScreen.main {
+            note("screen | frame=\(s.frame) visible=\(s.visibleFrame)"
+                 + " safeTop=\(s.safeAreaInsets.top)"
+                 + " auxLeft=\(s.auxiliaryTopLeftArea.map { "\($0)" } ?? "nil")"
+                 + " auxRight=\(s.auxiliaryTopRightArea.map { "\($0)" } ?? "nil")")
+        }
         // Only the icon is polled. The menu itself is rebuilt on open, so a
         // closed menu costs two stat() calls every five seconds and nothing else.
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -76,17 +116,25 @@ final class Controller: NSObject, NSMenuDelegate {
     }
 
     func refreshIcon() {
-        guard let button = item.button else { return }
+        guard let button = item.button else {
+            note("no status button - the item was not created")
+            return
+        }
         let running = runningPid() != nil
         let name = running ? "arrow.triangle.2.circlepath" : "books.vertical"
-        if let img = NSImage(systemSymbolName: name, accessibilityDescription: "calibre daily enrich") {
-            img.isTemplate = true
-            button.image = img
-            button.title = ""
-        } else {
-            button.image = nil
-            button.title = running ? "↻" : "📚"
-        }
+        // The symbol is decoration. The title is what guarantees something
+        // visible, because an item with only an image that fails to resolve
+        // is an invisible, unclickable gap in the menu bar.
+        button.image = nil
+        button.title = "CALIBRE"
+        let w = button.window
+        note("label set | itemVisible=\(item.isVisible)"
+             + " winFrame=\(w.map { "\($0.frame)" } ?? "nil")"
+             + " winOnScreen=\(w?.isVisible ?? false)"
+             + " winLevel=\(w?.level.rawValue ?? -999)"
+             + " alpha=\(w?.alphaValue ?? -1)"
+             + " screen=\(NSScreen.main?.frame.debugDescription ?? "nil")"
+             + " symbolOK=\(NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil)")
         button.toolTip = running ? "calibre daily enrich - running" : "calibre daily enrich"
     }
 
@@ -161,7 +209,3 @@ final class Controller: NSObject, NSMenuDelegate {
     @objc func quit()        { NSApp.terminate(nil) }
 }
 
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
-let controller = Controller()
-app.run()

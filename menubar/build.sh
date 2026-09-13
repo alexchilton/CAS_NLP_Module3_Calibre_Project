@@ -17,9 +17,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 # -swift-version 5: the Swift 6 language mode rejects the shared mutable state
 # a single-file AppKit app is built on. Nothing here needs strict concurrency.
-swiftc -O -swift-version 5 \
+swiftc -O -swift-version 5 -parse-as-library \
     -o "$APP/Contents/MacOS/CalibreDaily" \
-    "$HERE/main.swift"
+    "$HERE/App.swift"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -32,8 +32,17 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key><string>com.alexchilton.calibre-daily-menubar</string>
     <key>CFBundleExecutable</key><string>CalibreDaily</string>
     <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleSignature</key><string>????</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <!-- Without NSPrincipalClass AppKit never takes over the process as a
+         real GUI app, and without NSHighResolutionCapable the bundle runs
+         in scaled low-resolution mode on a Retina display. A hand-built
+         bundle gets neither by default; Xcode writes both for you. -->
+    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSHighResolutionCapable</key><true/>
     <!-- Menu bar only: no dock tile, no window, no app switcher entry. -->
     <key>LSUIElement</key><true/>
 </dict>
