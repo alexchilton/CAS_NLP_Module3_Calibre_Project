@@ -99,6 +99,16 @@ if [ "$WRITES" = 1 ]; then
     step "catalogue descriptions" "$PY" -u "$REPO/enrich_descriptions.py" --apply --delay 0.8
 fi
 
+# 2b. Titles that are only an identifier ----------------------------------
+# calibre names a book by its ISBN or ASIN when the file carries no title, so
+# these arrive with every batch. Before the model phase, because qwen writes
+# its description FROM the title: asked about "B0G48HGR81" it has nothing to
+# work with. Safe to run alongside the frozen-title guard in the two catalogue
+# scripts - it only touches a title that is nothing but an identifier.
+if [ "$WRITES" = 1 ]; then
+    step "identifier titles" "$PY" -u "$REPO/fix_identifier_titles.py" --apply --delay 0.8
+fi
+
 # 3. Generated descriptions ----------------------------------------------
 if [ "$OLLAMA" = 1 ]; then
     step "qwen descriptions (generate)" "$PY" -u "$REPO/describe_with_qwen.py" --generate --resume
